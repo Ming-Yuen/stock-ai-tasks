@@ -56,14 +56,16 @@ imported
 
 ## 每次 ChatGPT 執行規則
 
-每次執行都必須按檔名／時間由舊到新，持續處理 `pending/` 內所有可處理的 CSV，直到 `pending/` 為空；不要只處理一個 batch 就停止。
+每次執行都必須按檔名／時間由舊到新持續處理多個 `pending/` CSV，不得只完成一個 batch 就無故停止。
+
+單次執行不要求一定清空整個 `pending/`。如果接近本次 ChatGPT 執行時間、工具調用或其他平台限制，應在完成並提交目前 CSV 後安全結束；下一次排程再由剩餘 `pending/` 繼續，直到最終全部完成。
 
 每個 CSV 的流程：
 
 1. 先把檔案從 `pending/` 移到 `processing/` 並 commit + push。
 2. 覆核每一 row，只修改三個分類欄位。
 3. 完成後把同名檔案從 `processing/` 移到 `finished/`。
-4. commit + push 後再處理下一個 `pending` CSV。
+4. commit + push 後，如果本次仍有可用執行能力，立即繼續下一個 `pending` CSV。
 
 如果遇到暫時性的 GitHub、網路或服務錯誤，檔案應保留在 `processing/`，等待下一次重試，不得錯誤移到 `finished/` 或 `error/`。
 
