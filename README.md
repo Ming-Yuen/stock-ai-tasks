@@ -138,8 +138,12 @@ imported/
 - `pending → processing` 與 `processing → finished` 必須是兩個分開的狀態轉移，不得一次跨越兩個狀態。
 - 同一 repository 內的 batch 狀態 move 應以單一 Git commit 同時完成來源刪除與目的建立，避免「先 create 再 delete」造成中間重複狀態。
 - 不得 force push。
-- 每次寫入以 execution 目前已知的 `currentHead` 為 base，並使用非 force 的安全 ref update／expected SHA 機制；成功後把新 commit SHA 設為新的 `currentHead`。
-- 若 main HEAD 在寫入期間已被其他合法 writer 更新，才重新讀取最新 HEAD 與 recursive Git tree；只有在來源／目的與內容仍可安全判定時才能基於最新 HEAD 重試。
+- 每次準備寫入時，把當下 execution 已知的 `currentHead` 記為本次寫入的 `baseHead`。新的 tree 與 commit 必須以該 `baseHead` 為 base／parent 建立。
+- 對 `main` 執行 `update_ref` 時，**必須**使用新 commit SHA 作為 `sha`、建立該 commit 時的 `baseHead` 作為 `expected_sha`，並保持 `force=false`。不得省略 `expected_sha`，不得使用 `force=true` 繞過競態或安全檢查。
+- `update_ref` 成功後，立即把新 commit SHA 設為新的 `currentHead`，並更新 execution 內受影響 batch 的快取狀態。
+- 只有明確出現 `expected SHA mismatch`、non-fast-forward，或重新讀取後確認 `main` HEAD 已被其他合法 writer 推進，才視為**可重試的 Git race**。此時必須重新讀取最新 HEAD 與 recursive Git tree，確認來源／目的路徑、batch 內容與實際狀態仍可安全判定；若安全，必須以新的 HEAD 重新建立 tree + commit，再嘗試 `update_ref`，不得反覆提交原本以舊 parent 建立的同一 commit。每一個狀態轉移最多重試 3 次。
+- 若 `update_ref` 被 GitHub Connector 的 safety check、policy 或其他寫入安全機制阻擋，但重新讀取後 `main` HEAD **沒有改變**，且沒有 `expected SHA mismatch`／non-fast-forward，則**不屬於 Git race**。可重新確認一次最新 HEAD/tree 與 batch 實際狀態；若相同安全阻擋再次出現，不要把相同操作硬重試到 3 次、不要 force push，應保留 batch 在最後可核實的安全狀態並停止本次 execution，依「提前停止執行錯誤報告」記錄原因，下一次 execution 再從最新狀態恢復。
+- 若來源與目的同時存在、內容不一致、batch 狀態無法安全判定，或真實 Git race 連續超過 3 次，停止本次 execution；不得猜測清理或覆蓋。
 - 不要修改目前 task 以外的檔案，除非是本 README 明確要求的 repository-level 掃描或 execution report。
 - 不要修改其他 task 的 README 或資料，除非該次任務明確要求。
 - 不要自行改變 task folder 結構、batch 檔名規則或資料 schema。
@@ -152,6 +156,7 @@ imported/
 
 - 實際執行時間、工具或平台限制。
 - 無法安全解決的 GitHub 競態、non-fast-forward、expected SHA mismatch 或內容衝突。
+- GitHub Connector safety check／policy 阻擋，且重新確認 HEAD/tree 後仍無法安全完成寫入。
 - 暫時性的 GitHub、Connector、網路或服務錯誤。
 - task 缺少 README，或規則不足以安全處理。
 - framework 明確規定必須停止的其他情況。
@@ -164,9 +169,9 @@ imported/
 4. 報告是 execution-level 診斷紀錄，不得取代、移動、改名或修改任何 batch CSV。
 5. 產生 execution report 本身**不得增加 `errorCount`**，也不得將正常 batch 標記為 error。
 6. 寫報告前必須重新取得 `main` 最新 HEAD 與最新 recursive Git tree，以最新可核實狀態為準。
-7. 報告本身應使用獨立 Git commit 寫入 `main`，以最新 HEAD 為 base，且不得 force push。
-8. 若寫入報告時遇到合法競態，重新取得最新 HEAD 後，在內容仍成立的前提下最多安全重試 3 次。
-9. 若 GitHub／Connector／工具故障嚴重到連報告都無法安全寫入，不得猜測修復或 force push；最終聊天報告必須明確指出 execution report 未能寫入及可核實原因。
+7. 報告本身應使用獨立 Git commit 寫入 `main`，以最新 HEAD 為 base，且同樣必須使用 `expected_sha=baseHead`、`force=false` 的安全 ref update 規則。
+8. 若寫入報告時遇到真正的合法 Git race，重新取得最新 HEAD 後，在內容仍成立的前提下依 Git 原則安全重建 commit 並最多重試 3 次。
+9. 若 GitHub／Connector／工具故障或 safety block 嚴重到連報告都無法安全寫入，不得猜測修復或 force push；最終聊天報告必須明確指出 execution report 未能寫入及可核實原因。
 10. 如果本次正常處理到所有可處理工作清空，不建立 execution error report。
 
 每份 execution report 至少包含：
@@ -179,6 +184,7 @@ imported/
 - 全 repository 最後一次掃描時剩餘 pending 合計。
 - 該 task 最後一次掃描時剩餘 pending 數。
 - 可核實的提前停止原因，不得以推測代替事實。
+- 若涉及 Git 寫入，應註明屬於 `expected SHA mismatch/non-fast-forward`、Connector safety block/policy，或其他已核實類型；不得把 safety block 猜成 Git race。
 - 是否留下 `processing/` 工作；若有，列出實際檔名。
 - 最後一次重新掃描時，與阻礙相關 batch 的實際狀態。
 - 最後可核實的 `main` HEAD／commit SHA（工具可取得時）。
