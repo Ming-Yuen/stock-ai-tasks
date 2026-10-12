@@ -5,8 +5,8 @@
 ## 核心責任
 
 - Spring Boot：建立 task 的 `pending/` 輸入，匯入 `finished/` 結果，成功後移到 `imported/`。
-- ChatGPT：讀取來源、依各 task README 完成 AI 工作與驗證，最後只提交 result bundle。
-- GitHub Actions：唯一負責驗證 bundle、套用 outputs、刪除來源、commit + push。
+- ChatGPT：讀取 `pending/` source，依各 task README 完成 AI 工作與驗證，最後只提交 result bundle。
+- GitHub Actions：唯一負責驗證 bundle、套用 outputs、刪除 source、commit + push。
 
 ChatGPT 不直接做 queue state move，不自行建立 `finished/` 或修改 `imported/`，也不使用 `create_tree`、`create_commit`、`update_ref` 或 force push 推進 queue。
 
@@ -20,7 +20,6 @@ ai-output/
 <task-name>/
   README.md
   pending/
-  processing/   # legacy/recovery only
   finished/
   imported/
   error/
@@ -32,18 +31,16 @@ root README 只定義 framework。每個 task 的輸入格式、輸出格式、A
 
 1. 重新讀取 `main` 最新 root README，作為 framework 唯一正式規則來源。
 2. 讀取最新 HEAD 與 recursive Git tree，動態找出所有具 README 的頂層 task folders。
-3. 快取各 task 的 `pending/`、legacy `processing/`、`finished/`、`imported/`、`error/` 與 README blob SHA。
+3. 快取各 task 的 `pending/`、`finished/`、`imported/`、`error/` 與 README blob SHA。
 4. 第一次處理某 task 前讀取該 task 最新 README；同一次 execution 內 README blob SHA 未變可重用快取。
 
 不得 hardcode task 名稱、batch 路徑或 task-specific 規則，不得依賴 `manifest.json` 或 code search 判斷 queue 狀態。
 
 ## 工作選擇與 execution drain
 
-先處理 legacy `processing/`，再按檔名／時間由舊到新處理 `pending/`。
+按檔名／時間由舊到新處理所有 task 的 `pending/` source。
 
-新的流程不再把 `pending` 移到 `processing`。`processing/` 只保留舊架構遺留與恢復用途；ChatGPT 可直接讀取 legacy source，GitHub Actions finalize 後刪除來源。
-
-一次 execution 的目標是 drain 所有 task 中所有可安全處理的 legacy `processing/` 與 `pending/` 工作：
+一次 execution 的目標是 drain 所有 task 中所有可安全處理的 `pending/` 工作：
 
 - 不設定固定 batch 上限。
 - 完成一個 source 後繼續下一個。
@@ -90,7 +87,7 @@ ai-output/execution-YYYYMMDD-HHmmss.json
 ### source 規則
 
 - `task` 必須是實際存在且具有 README 的頂層 task folder。
-- `source.path` 只可位於該 task 的 `pending/` 或 legacy `processing/` 下。
+- `source.path` 只可位於該 task 的 `pending/` 下。
 - `source.blob_sha` 必須是實際讀取並用於 AI 分析的 Git blob SHA。
 - 建立 bundle 前必須重新讀取最新 tree，確認 source 仍存在且 blob SHA 未改變。
 - source 已被改動、移走或處理時，該 result 必須從 bundle 排除。
@@ -106,7 +103,7 @@ ai-output/execution-YYYYMMDD-HHmmss.json
 - 同一 bundle 中不得讓不同 source 寫入同一 output path。
 - output 是完整檔案內容，不是 diff。
 
-多個已完成 source 集中在同一 bundle，目的仍是把 GitHub Connector 寫入降到每次 execution 通常一次。
+多個已完成 source 集中在同一 bundle，目的是把 GitHub Connector 寫入降到每次 execution 通常一次。
 
 ## GitHub Actions finalizer
 
@@ -115,9 +112,9 @@ ai-output/execution-YYYYMMDD-HHmmss.json
 當 `ai-output/*.json` 出現後，finalizer：
 
 1. 串行處理，避免多個 finalizer 同時修改 queue。
-2. 驗證 schema v2、task、source path、source blob SHA、output path 與 encoding。
+2. 驗證 schema v2、task、`pending/` source path、source blob SHA、output path 與 encoding。
 3. 在修改 repository 前先驗證所有 bundle；任何 bundle 驗證失敗則整次 workflow 失敗，不做部分套用。
-4. 對每個 result 寫入其全部 `outputs[]`，然後刪除該 source。
+4. 對每個 result 寫入其全部 `outputs[]`，然後刪除該 `pending/` source。
 5. 已存在的 output 只有內容完全相同時才可視為可重用；內容不同則停止，禁止覆蓋。
 6. 所有成功套用的 bundle 一併刪除。
 7. 將所有變更放進 Git commit 並 push `main`；一般並發更新時可同步最新 main 後安全重試，不得 force push。
@@ -135,11 +132,11 @@ Finalizer 不呼叫 OpenAI API，因此不產生 OpenAI API 用量。
 - 每個 output 的 `finished/` 路徑／命名規則、格式與 encoding。
 - 無法可靠判斷與永久性資料錯誤的處理方式。
 
-GitHub Actions finalizer不理解任何 task 業務內容；它只執行通用的 source SHA 驗證、output path 安全檢查、檔案套用與 Git 操作。
+GitHub Actions finalizer 不理解任何 task 業務內容；它只執行通用的 source SHA 驗證、output path 安全檢查、檔案套用與 Git 操作。
 
 ## finished / imported
 
-- `finished/` 由 GitHub Actions finalizer依 bundle outputs 建立，等待 Spring Boot 匯入。
+- `finished/` 由 GitHub Actions finalizer 依 bundle outputs 建立，等待 Spring Boot 匯入。
 - `imported/` 只由 Spring Boot Import Job 負責。
 - ChatGPT 與 finalizer 都不得自行完成 `finished → imported`。
 
@@ -159,8 +156,6 @@ GitHub Actions finalizer不理解任何 task 業務內容；它只執行通用�
 
 ```text
 讀取最新 framework / tree
-↓
-持續處理所有 task 的 legacy processing
 ↓
 持續處理所有 task 的 pending
 ↓
@@ -185,6 +180,6 @@ GitHub Actions finalizer 套用 source + outputs[]
 - bundle 路徑。
 - output 總數。
 - 因 source 變更而排除的 result 數。
-- 最終確認時仍可見的 pending / legacy processing 概況。
+- 最終確認時仍可見的 pending 概況。
 
 如果 execution 開始及最終確認都沒有任何可處理 source，則不建立空 bundle。
