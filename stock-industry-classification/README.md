@@ -69,7 +69,7 @@ main: pending/*.csv
   ↓
 ChatGPT 只讀 main 並完成分析
   ↓
-ai-results: ai-output/execution-*.json (schema v2)
+ai-results: ai-output/execution-*-cpNNN.json (schema v2 checkpoint bundle)
   ↓
 GitHub Actions finalizer
   ↓
@@ -81,7 +81,7 @@ main: imported/*.csv
 ```
 
 - `pending/`：Spring Boot 已匯出，等待 ChatGPT 分析。
-- `ai-results/ai-output`：只用來傳遞 ChatGPT result bundle；不是 queue state 來源。
+- `ai-results/ai-output`：只用來傳遞 ChatGPT checkpoint result bundle；不是 finished / imported 狀態來源。
 - `finished/`：GitHub Actions finalizer 依 bundle output 在 `main` 建立，等待 Spring Boot 匯入。
 - `imported/`：只由 Spring Boot 成功匯入後建立。
 - `error/`：永久性資料錯誤的診斷位置。
@@ -90,7 +90,7 @@ ChatGPT 不得修改 `main`，不得自行建立 `finished` 或執行 `finished 
 
 ## Schema v2 result entry
 
-每個成功 source 在本次 execution bundle 中使用：
+每個成功 source 在 checkpoint bundle 中使用：
 
 ```json
 {
@@ -113,17 +113,20 @@ ChatGPT 不得修改 `main`，不得自行建立 `finished` 或執行 `finished 
 
 ## 每次 ChatGPT execution
 
-1. 依 root README 從 `main` 動態發現工作。
+1. 依 root README 從 `main` 動態發現工作並建立 execution cache。
 2. 按檔名／時間由舊到新處理 `pending/`。
 3. 對每個 source CSV 覆核每一 row，只修改三個分類欄位。
 4. 驗證 header、row 數、row 順序、`figi`、`symbol` 均保持不變。
 5. 將完整處理後 CSV 放入該 source 的唯一 `outputs[]` entry。
-6. 遵守 root README 的 bundle transport safety ceiling；不是固定 batch 上限，剩餘 pending 由下一次 execution 繼續。
-7. 建立 bundle 前重新讀取 `main` 最新 tree，驗證 included source 仍存在且 blob SHA 未改變。
-8. ChatGPT 唯一 GitHub write 是把 schema v2 bundle `create_file` 到 `ai-results` branch 的 `ai-output/`；不得使用其他 intermediate Git write。
-9. GitHub Actions finalizer 再從 `ai-results` 讀 bundle，套用 output 到 `main` 並刪除 source。
+6. 正常每完成 **3 個**成功 source，就依 root README 建立一個 checkpoint bundle；最後不足 3 個亦要提交，不等待下一次 execution。
+7. 若 transport safety ceiling 比 3-source checkpoint 更早觸發，先依 root README 提交目前完整結果，不得切割單一 source result。
+8. checkpoint 前只針對 included source 驗證其在 `main` 仍存在且 blob SHA 未改變；不要為每個 checkpoint重新 full scan repository。
+9. ChatGPT 唯一允許的 GitHub write 類型是把 schema v2 checkpoint bundle用一般 `create_file` 寫到 `ai-results/ai-output/`；同一次 execution 可按 checkpoint 執行多次，但不得使用其他 intermediate Git write。
+10. checkpoint 成功後，在 execution cache 將 included source 標記為 submitted，繼續處理下一組；不得等待所有 pending 都處理完才一次提交。
+11. GitHub Actions finalizer 再從 `ai-results` 讀取一個或多個 bundle，套用 output 到 `main` 並刪除 source。
+12. cache drain 後才重新讀取 `main` 最新 HEAD + recursive tree 做最終確認；若有真正的新 pending，再繼續處理。
 
-如果 source 在 bundle 建立前已被改動或移走，該 result 必須從本次 bundle 排除，不得覆蓋最新來源。
+如果 source 在 checkpoint 建立前已被改動或移走，該 result 必須從該 checkpoint 排除，不得覆蓋最新來源。
 
 ## 無法判斷
 
