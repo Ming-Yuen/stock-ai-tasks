@@ -4,6 +4,8 @@
 
 Spring Boot 負責產生待處理資料並推送到 GitHub；ChatGPT 從 `pending/` 取得任務、完成 AI 處理後放到 `finished/`；Spring Boot 再匯入資料庫並把成功檔案移到 `imported/`。
 
+ChatGPT 透過已授權的 GitHub connector 直接讀寫這個 private repository；正常排程不依賴 Desktop Commander 或本機 VM 才能存取 GitHub。
+
 ## 工作流程
 
 ```text
