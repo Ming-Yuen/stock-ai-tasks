@@ -112,9 +112,9 @@ jobs:
                       if (
                           len(source_path.parts) < 3
                           or source_path.parts[0] != task
-                          or source_path.parts[1] not in {'pending', 'processing'}
+                          or source_path.parts[1] != 'pending'
                       ):
-                          raise ValueError(f'Invalid source path for task {task}: {source_path}')
+                          raise ValueError(f'Source must stay under {task}/pending/: {source_path}')
 
                       outputs_doc = item.get('outputs')
                       if not isinstance(outputs_doc, list) or not outputs_doc:
