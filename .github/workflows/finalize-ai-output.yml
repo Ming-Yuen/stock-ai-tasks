@@ -3,7 +3,7 @@ name: Finalize AI output
 on:
   push:
     branches:
-      - main
+      - ai-results
     paths:
       - 'ai-output/*.json'
   workflow_dispatch:
@@ -19,13 +19,21 @@ jobs:
   finalize:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
+      - name: Checkout main queue
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
+          path: main-worktree
 
-      - name: Validate and apply bundles
+      - name: Checkout AI result inbox
+        uses: actions/checkout@v4
+        with:
+          ref: ai-results
+          fetch-depth: 0
+          path: ai-results-worktree
+
+      - name: Validate bundles and apply to main worktree
         shell: bash
         run: |
           set -euo pipefail
@@ -37,9 +45,14 @@ jobs:
           import re
           from pathlib import Path, PurePosixPath
 
-          root = Path('.')
-          output_dir = root / 'ai-output'
+          workspace = Path('.')
+          main_root = workspace / 'main-worktree'
+          ai_root = workspace / 'ai-results-worktree'
+          output_dir = ai_root / 'ai-output'
+          processed_list = workspace / 'processed-bundles.txt'
           bundles = sorted(output_dir.glob('execution-*.json')) if output_dir.exists() else []
+
+          processed_list.write_text('', encoding='utf-8')
 
           if not bundles:
               print('No AI output bundles to finalize.')
@@ -97,8 +110,8 @@ jobs:
                           raise ValueError(f'results[{index}] must be an object')
 
                       task = safe_task(item.get('task'))
-                      if not (root / task / 'README.md').is_file():
-                          raise ValueError(f'Task README missing: {task}/README.md')
+                      if not (main_root / task / 'README.md').is_file():
+                          raise ValueError(f'Task README missing on main: {task}/README.md')
 
                       source_doc = item.get('source')
                       if not isinstance(source_doc, dict):
@@ -165,9 +178,9 @@ jobs:
                               )
                           output_owners[str(output_path)] = source_key
 
-                      source = root / Path(*source_path.parts)
+                      source = main_root / Path(*source_path.parts)
                       if not source.is_file():
-                          raise ValueError(f'Source missing: {source_path}')
+                          raise ValueError(f'Source missing on main: {source_path}')
                       actual_sha = blob_sha(source)
                       if actual_sha != expected_sha:
                           raise ValueError(
@@ -176,7 +189,7 @@ jobs:
                           )
 
                       for output_path, output_bytes in outputs:
-                          destination = root / Path(*output_path.parts)
+                          destination = main_root / Path(*output_path.parts)
                           if destination.exists() and destination.read_bytes() != output_bytes:
                               raise ValueError(f'Output content conflict: {output_path}')
 
@@ -187,7 +200,7 @@ jobs:
                           'bundles': {bundle},
                       }
               except Exception as exc:
-                  errors.append(f'{bundle}: {exc}')
+                  errors.append(f'{bundle.relative_to(ai_root)}: {exc}')
 
           if errors:
               print('Bundle validation failed:')
@@ -197,46 +210,90 @@ jobs:
 
           for plan in plans.values():
               for output_path, output_bytes in plan['outputs']:
-                  destination = root / Path(*output_path.parts)
+                  destination = main_root / Path(*output_path.parts)
                   destination.parent.mkdir(parents=True, exist_ok=True)
                   if not destination.exists():
                       destination.write_bytes(output_bytes)
               plan['source'].unlink()
 
-          for bundle in bundles:
-              bundle.unlink()
+          processed_list.write_text(
+              ''.join(f'{bundle.relative_to(ai_root).as_posix()}\n' for bundle in bundles),
+              encoding='utf-8',
+          )
 
           output_count = sum(len(plan['outputs']) for plan in plans.values())
           print(
-              f'Finalized {len(plans)} source(s), wrote {output_count} output(s) '
+              f'Validated {len(plans)} source(s), prepared {output_count} output(s) '
               f'from {len(bundles)} bundle(s).'
           )
           PY
 
-      - name: Commit and push finalized queue state
+      - name: Commit and push finalized main queue state
         shell: bash
         run: |
           set -euo pipefail
+          cd main-worktree
 
           if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-            echo 'No queue changes to commit.'
+            echo 'No main queue changes to commit.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -A
+            git commit -m 'Finalize AI task output'
+
+            pushed=false
+            for attempt in 1 2 3 4 5; do
+              if git push origin HEAD:main; then
+                pushed=true
+                break
+              fi
+
+              echo "Main push attempt ${attempt} failed; rebasing onto latest main."
+              git fetch origin main
+              git rebase origin/main
+            done
+
+            if [ "$pushed" != true ]; then
+              echo 'Unable to push finalized main queue state after retries.' >&2
+              exit 1
+            fi
+          fi
+
+      - name: Remove applied bundles from ai-results
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ai-results-worktree
+
+          if [ ! -s ../processed-bundles.txt ]; then
+            echo 'No AI bundles to remove.'
+            exit 0
+          fi
+
+          while IFS= read -r bundle; do
+            [ -n "$bundle" ] || continue
+            git rm --ignore-unmatch -- "$bundle"
+          done < ../processed-bundles.txt
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo 'No AI result cleanup changes to commit.'
             exit 0
           fi
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'Finalize AI task output'
+          git commit -m 'Remove applied AI result bundles'
 
           for attempt in 1 2 3 4 5; do
-            if git push origin HEAD:main; then
+            if git push origin HEAD:ai-results; then
               exit 0
             fi
 
-            echo "Push attempt ${attempt} failed; rebasing onto latest main."
-            git fetch origin main
-            git rebase origin/main
+            echo "AI result cleanup push attempt ${attempt} failed; rebasing onto latest ai-results."
+            git fetch origin ai-results
+            git rebase origin/ai-results
           done
 
-          echo 'Unable to push finalized queue state after retries.' >&2
+          echo 'Unable to clean applied bundles from ai-results after retries.' >&2
           exit 1
