@@ -4,11 +4,10 @@
 
 ## Source CSV
 
-可處理來源：
+可處理來源只有：
 
 ```text
 stock-industry-classification/pending/*.csv
-stock-industry-classification/processing/*.csv   # legacy recovery only
 ```
 
 欄位順序必須完全保持不變：
@@ -82,12 +81,11 @@ imported/*.csv
 ```
 
 - `pending/`：Spring Boot 已匯出，等待 ChatGPT 分析。
-- `processing/`：只保留舊架構遺留／恢復用途；新的 execution 不再把 pending 移到 processing。
 - `finished/`：GitHub Actions finalizer 依 bundle output 建立，等待 Spring Boot 匯入。
 - `imported/`：只由 Spring Boot 成功匯入後建立。
 - `error/`：永久性資料錯誤的診斷位置。
 
-ChatGPT 不得自行做 `pending → processing`、建立 `finished` 或 `finished → imported`。
+ChatGPT 不得自行建立 `finished` 或執行 `finished → imported`。
 
 ## Schema v2 result entry
 
@@ -115,7 +113,7 @@ ChatGPT 不得自行做 `pending → processing`、建立 `finished` 或 `finish
 ## 每次 ChatGPT execution
 
 1. 依 root README 動態發現工作。
-2. 優先處理 legacy `processing/`，再按檔名／時間由舊到新處理 `pending/`。
+2. 按檔名／時間由舊到新處理 `pending/`。
 3. 對每個 source CSV 覆核每一 row，只修改三個分類欄位。
 4. 驗證 header、row 數、row 順序、`figi`、`symbol` 均保持不變。
 5. 將完整處理後 CSV 放入該 source 的唯一 `outputs[]` entry。
