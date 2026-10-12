@@ -1,0 +1,168 @@
+name: Finalize AI output
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ai-output/*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-ai-output-main
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate and apply bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path('.')
+          output_dir = root / 'ai-output'
+          bundles = sorted(output_dir.glob('execution-*.json')) if output_dir.exists() else []
+
+          if not bundles:
+              print('No AI output bundles to finalize.')
+              raise SystemExit(0)
+
+          def blob_sha(path: Path) -> str:
+              data = path.read_bytes()
+              header = f'blob {len(data)}\0'.encode('utf-8')
+              return hashlib.sha1(header + data).hexdigest()
+
+          def safe_leaf(value: str, label: str) -> str:
+              if not value or '/' in value or '\\' in value or value in {'.', '..'}:
+                  raise ValueError(f'Invalid {label}: {value!r}')
+              return value
+
+          plans = {}
+          errors = []
+
+          for bundle in bundles:
+              try:
+                  doc = json.loads(bundle.read_text(encoding='utf-8'))
+                  if doc.get('schema_version') != 1:
+                      raise ValueError('schema_version must be 1')
+                  results = doc.get('results')
+                  if not isinstance(results, list) or not results:
+                      raise ValueError('results must be a non-empty array')
+
+                  for item in results:
+                      task = safe_leaf(str(item['task']), 'task')
+                      filename = safe_leaf(str(item['filename']), 'filename')
+                      source_path = Path(str(item['source_path']))
+                      expected_sha = str(item['source_blob_sha'])
+                      content = str(item['content']).encode('utf-8')
+
+                      allowed_pending = Path(task) / 'pending' / filename
+                      allowed_processing = Path(task) / 'processing' / filename
+                      if source_path not in {allowed_pending, allowed_processing}:
+                          raise ValueError(f'Invalid source_path for {task}/{filename}: {source_path}')
+
+                      if not (Path(task) / 'README.md').is_file():
+                          raise ValueError(f'Task README missing: {task}/README.md')
+
+                      key = (task, filename)
+                      fingerprint = (str(source_path), expected_sha, hashlib.sha256(content).hexdigest())
+                      if key in plans:
+                          if plans[key]['fingerprint'] != fingerprint:
+                              raise ValueError(f'Conflicting duplicate result for {task}/{filename}')
+                          plans[key]['bundles'].add(bundle)
+                          continue
+
+                      source = root / source_path
+                      destination = root / task / 'finished' / filename
+
+                      if destination.exists():
+                          if destination.read_bytes() != content:
+                              raise ValueError(f'finished content conflict: {destination}')
+                          if source.exists() and blob_sha(source) != expected_sha:
+                              raise ValueError(f'source SHA changed: {source_path}')
+                          mode = 'already-finished'
+                      else:
+                          if not source.is_file():
+                              raise ValueError(f'source missing: {source_path}')
+                          actual_sha = blob_sha(source)
+                          if actual_sha != expected_sha:
+                              raise ValueError(
+                                  f'source SHA changed: {source_path}; expected {expected_sha}, actual {actual_sha}'
+                              )
+                          mode = 'finalize'
+
+                      plans[key] = {
+                          'fingerprint': fingerprint,
+                          'source': source,
+                          'destination': destination,
+                          'content': content,
+                          'mode': mode,
+                          'bundles': {bundle},
+                      }
+              except Exception as exc:
+                  errors.append(f'{bundle}: {exc}')
+
+          if errors:
+              print('Bundle validation failed:')
+              for error in errors:
+                  print(f'  - {error}')
+              raise SystemExit(1)
+
+          for plan in plans.values():
+              source = plan['source']
+              destination = plan['destination']
+              if plan['mode'] == 'finalize':
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(plan['content'])
+              if source.exists():
+                  source.unlink()
+
+          for bundle in bundles:
+              bundle.unlink()
+
+          print(f'Finalized {len(plans)} batch(es) from {len(bundles)} bundle(s).')
+          PY
+
+      - name: Commit and push finalized queue state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+            echo 'No queue changes to commit.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Finalize AI task output'
+
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+
+            echo "Push attempt ${attempt} failed; rebasing onto latest main."
+            git fetch origin main
+            git rebase origin/main
+          done
+
+          echo 'Unable to push finalized queue state after retries.' >&2
+          exit 1
