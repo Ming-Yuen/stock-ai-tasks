@@ -41,6 +41,19 @@ stock-ai-tasks/
 4. 不要把某一個 task 的規則套用到其他 task。
 5. 如果 task folder 缺少 README，或 README 無法清楚判斷如何安全處理資料，停止處理該 task，不要自行猜測規則。
 
+## Repository 掃描規則
+
+每次開始執行、每完成一個 batch，以及結束前重新確認工作狀態時，必須以 GitHub Connector 讀取 `main` 最新的 recursive Git tree（Git Trees API，等同 `git/trees/main?recursive=1`）作為 repository 實際檔案狀態來源。
+
+必須遵守：
+
+- 由最新 Git tree 動態找出所有頂層 task folders，不得 hardcode task folder 名稱。
+- 由最新 Git tree 檢查每個 task 的 `processing/`、`pending/`、`finished/`、`imported/`、`error/` 實際內容。
+- 不得因 code search 沒有結果就判定 repository 無法掃描或沒有工作。
+- 不得猜測 batch 檔名或路徑。
+- 不得依賴 `manifest.json`；repository 不需要以 manifest 作為工作發現或狀態來源。
+- 若 Git tree 顯示的狀態與先前讀取結果不同，一律以重新取得的最新 Git tree 為準，再依 Git 競態與安全規則處理。
+
 ## 共通工作流程
 
 一般 task 使用以下生命週期：
