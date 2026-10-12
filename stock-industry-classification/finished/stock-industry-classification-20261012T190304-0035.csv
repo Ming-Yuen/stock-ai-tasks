@@ -1,0 +1,101 @@
+figi,symbol,industry,sub_industry,valuation_industry
+BBG015WG0QR9,EPSM,,,
+BBG000BHJM37,EPSN,Energy,Oil & Gas Exploration & Production,Natural Gas Production
+BBG01TQRXF43,EPSV,,,
+BBG000MF3YP6,EPU,,,
+BBG000MKHDC0,EPV,,,
+BBG00LSL8C10,EQ,,,
+BBG007RBRVZ4,EQAL,,,
+BBG000QKJS40,EQBK,Financials,Regional Banks,Regional Banking
+BBG00J7CBVW8,EQH,Financials,Life & Health Insurance,Life Insurance & Retirement Products
+BBG00D2R0FX9,EQIN,,,
+BBG000MBDGM6,EQIX,Real Estate,Specialized REITs,Data Center REITs
+BBG000N8Y785,EQL,,,
+BBG01PK3DGJ4,EQLT,,,
+BBG000NT0ZZ4,EQNR,Energy,Integrated Oil & Gas,Integrated Oil & Gas
+BBG00CZT1CC0,EQPT,,,
+BBG023WHZX61,EQQQ,,,
+BBG00H4371J1,EQRR,,,
+BBG000CWM7W0,EQS,,,
+BBG000BHZ5J9,EQT,Energy,Oil & Gas Exploration & Production,Natural Gas Production
+BBG01BX1KSN6,EQTY,,,
+BBG000QDSHZ6,EQWL,,,
+BBG004XB7MN9,EQX,Materials,Gold Mining,Gold Mining
+BBG00MTSR883,ERAS,Health Care,Biotechnology,Oncology Therapeutics
+BBG000PMWRY1,ERC,,,
+BBG01BG3WMX0,ERET,,,
+BBG000N6X575,ERH,,,
+BBG000BB0QF8,ERIC,Information Technology,Communications Equipment,Telecom Network Equipment
+BBG000BBTJZ1,ERIE,Financials,Insurance Brokers,Insurance Management Services
+BBG000VFBBC1,ERII,Industrials,Industrial Machinery,Water Desalination Equipment
+BBG000CX5677,ERNA,Health Care,Biotechnology,Biotechnology
+BBG00J09YMM8,ERO,Materials,Copper Mining,Copper Mining
+BBG022FRS3L7,EROC,,,
+BBG021QVJ089,EROK,,,
+BBG000Q4YTD7,ERTH,,,
+BBG000JLH8F0,ERX,,,
+BBG000JLLQ38,ERY,,,
+BBG000BQ87N0,ES,Utilities,Electric Utilities,Regulated Electric Utilities
+BBG0028ZMP45,ESAB,Industrials,Industrial Machinery,Welding & Fabrication Equipment
+BBG004M284K3,ESBA,,,
+BBG01YLH7NS5,ESBG,,,
+BBG000BJ0H70,ESCA,Consumer Discretionary,Leisure Products,Sporting Goods
+BBG000C4S3P3,ESE,Industrials,Electrical Equipment,Utility & Industrial Measurement Systems
+BBG000C9GH56,ESEA,Industrials,Marine Transportation,Container Shipping
+BBG00DB0LJG6,ESG,,,
+BBG00D7BBRR8,ESGD,,,
+BBG00D7BDH61,ESGE,,,
+BBG00D9WQB08,ESGG,,,
+BBG00FFPFT13,ESGU,,,
+BBG00M0P2RX7,ESGV,,,
+BBG005C4XHR3,ESI,Materials,Specialty Chemicals,Electronic & Industrial Chemicals
+BBG01Z2NJ2M9,ESIM,,,
+BBG00ZDR7G05,ESLA,Health Care,Biotechnology,Cancer Immunotherapy
+BBG01XMMFKP5,ESLG,,,
+BBG000CRN4P5,ESLT,Industrials,Aerospace & Defense,Defense Electronics
+BBG01XMMDBL1,ESLV,,,
+BBG00KK876G7,ESML,,,
+BBG0136JB519,ESMV,,,
+BBG01Q9KHKS4,ESN,,,
+BBG0058YL7G9,ESNT,Financials,Property & Casualty Insurance,Mortgage Insurance
+BBG000FSY520,ESOA,Industrials,Construction & Engineering,Energy Infrastructure Construction
+BBG000BJ2HP8,ESP,Industrials,Aerospace & Defense,Defense Electronics
+BBG00M8CX9N5,ESPO,,,
+BBG003BCFHX4,ESQ,Financials,Regional Banks,Commercial Banking
+BBG002N8HMW0,ESRT,Real Estate,Office REITs,Office & Observatory Properties
+BBG000CGJMB9,ESS,Real Estate,Residential REITs,Apartment REITs
+BBG01XMMFYP5,ESSC,,,
+BBG00L8R3CR6,ESTA,Health Care,Medical Devices,Aesthetic Implants
+BBG00LWZDYB9,ESTC,Information Technology,Application Software,Search & Observability Software
+BBG01R9KLG60,ESUM,,,
+BBG01699JVG0,ESYN,,,
+BBG000BM2FL9,ET,Energy,Oil & Gas Midstream,Pipeline & NGL Midstream
+BBG000BLQY16,ETB,,,
+BBG01X01MXS6,ETCO,,,
+BBG000BBVDT8,ETD,Consumer Discretionary,Home Furnishings,Furniture Manufacturing & Retail
+BBG01G09Q7Z1,ETEC,,,
+BBG01YRJ77M6,ETFT,,,
+BBG000JSBCL5,ETG,,,
+BBG01NR6CZK2,ETH,,,
+BBG01NXX8H49,ETHA,,,
+BBG020W14BD6,ETHB,,,
+BBG01N6CT9B2,ETHD,,,
+BBG00P5NVCR8,ETHE,,,
+BBG01L6XZHV3,ETHO,,,
+BBG01N6CTBS9,ETHT,,,
+BBG01JLG80T8,ETHU,,,
+BBG01NX8ZGV6,ETHV,,,
+BBG01NWT9ZY5,ETHW,,,
+BBG000RRLKJ2,ETJ,,,
+BBG000BJ3PD2,ETN,Industrials,Electrical Equipment,Electrical Power Management
+BBG0227BFYV6,ETNG,,,
+BBG000LYY7Z0,ETO,,,
+BBG00H0KCMV1,ETON,Health Care,Pharmaceuticals,Rare Disease Pharmaceuticals
+BBG00KG5TXN7,ETOR,,,
+BBG000C1FQS9,ETR,Utilities,Electric Utilities,Regulated Electric Utilities
+BBG012QDV1C7,ETRA,,,
+BBG01TV7D2Q8,ETS,,,
+BBG021H5V723,ETSS,,,
+BBG000N7MXL8,ETSY,Consumer Discretionary,Online Retail,Handmade & Vintage Marketplaces
+BBG01XS902R2,ETTY,,,
+BBG01QG48KB0,ETU,,,
