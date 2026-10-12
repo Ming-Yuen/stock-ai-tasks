@@ -20,7 +20,7 @@ figi,symbol,industry,sub_industry,valuation_industry
 
 ## AI 修改規則
 
-ChatGPT 只可以修改以下三個欄位：
+ChatGPT 只可以修改：
 
 - `industry`
 - `sub_industry`
@@ -36,39 +36,60 @@ ChatGPT 只可以修改以下三個欄位：
 - 無法可靠判斷時留空，不要猜測。
 - 同一公司的分類應保持一致及可重複。
 
-## 檔案流程
+## Queue 流程
+
+新的 framework 流程：
 
 ```text
-pending
+Spring Boot
   ↓
-processing
+pending/
   ↓
-finished
+ChatGPT 讀取及分析
   ↓
-imported
+root ai-output/execution-*.json
+  ↓
+GitHub Actions finalizer
+  ↓
+finished/
+  ↓
+Spring Boot import
+  ↓
+imported/
 ```
 
-- `pending/`：Spring Boot 已匯出、等待 ChatGPT 處理。
-- `processing/`：ChatGPT 正在處理。
-- `finished/`：ChatGPT 已完成，等待 Spring Boot 匯入。
+- `pending/`：Spring Boot 已匯出，等待 ChatGPT 分析。
+- `processing/`：只保留舊架構遺留／恢復用途；新的 ChatGPT execution 不再把 pending 移到 processing。
+- `finished/`：GitHub Actions finalizer 建立的完成結果，等待 Spring Boot 匯入。
 - `imported/`：Spring Boot 已成功匯入資料庫。
-- `error/`：資料格式、識別碼或其他無法安全處理的永久性錯誤。
+- `error/`：資料格式、識別碼或其他永久性資料錯誤的診斷位置。
 
-## 每次 ChatGPT 執行規則
+ChatGPT 不得自行做 `pending → processing`、`processing → finished` 或 `finished → imported`。
 
-每次執行都必須按檔名／時間由舊到新持續處理多個 `pending/` CSV，不得只完成一個 batch 就無故停止。
+## 每次 ChatGPT execution
 
-單次執行不要求一定清空整個 `pending/`。如果接近本次 ChatGPT 執行時間、工具調用或其他平台限制，應在完成並提交目前 CSV 後安全結束；下一次排程再由剩餘 `pending/` 繼續，直到最終全部完成。
+1. 依 root README 的 framework 規則找出工作。
+2. 優先處理 legacy `processing/`，再按檔名／時間由舊到新處理 `pending/`。
+3. 對每個來源 CSV 覆核每一 row，只修改三個分類欄位。
+4. 驗證：header 不變、row 數不變、每一 row 的 `figi` 與 `symbol` 不變。
+5. 完成的完整 CSV 內容加入本次 execution 的 result bundle。
+6. bundle entry 的 `source_path` 必須指向實際讀取的 pending 或 legacy processing 檔案，`source_blob_sha` 必須是實際用於分析的來源 blob SHA。
+7. ChatGPT 不直接建立 finished；由 GitHub Actions finalizer 驗證來源 SHA 後套用 bundle。
 
-每個 CSV 的流程：
+如果來源在 bundle 建立前已被改動或移走，將該結果從本次 bundle 排除，不得覆蓋最新來源。
 
-1. 先把檔案從 `pending/` 移到 `processing/` 並 commit + push。
-2. 覆核每一 row，只修改三個分類欄位。
-3. 完成後把同名檔案從 `processing/` 移到 `finished/`。
-4. commit + push 後，如果本次仍有可用執行能力，立即繼續下一個 `pending` CSV。
+## 無法判斷
 
-如果遇到暫時性的 GitHub、網路或服務錯誤，檔案應保留在 `processing/`，等待下一次重試，不得錯誤移到 `finished/` 或 `error/`。
+個別股票無法可靠判斷分類時，三個可修改欄位可保持空白；不要為了填滿而猜測。
+
+## 永久性資料錯誤
+
+若 CSV schema 錯誤、缺少 `figi`／`symbol`、row 結構損壞，或存在其他使整個 batch 無法安全處理的永久性問題：
+
+- 不產生該 batch 的成功 result entry。
+- 在最終報告指出實際問題。
+- 是否需要額外 error 診斷檔依 root README framework 規則處理。
 
 ## 匯入責任
 
-`finished/ → imported/` 只由 Spring Boot Import Job 負責。ChatGPT 不應自行把檔案移到 `imported/`。
+`finished/ → imported/` 只由 Spring Boot Import Job 負責。ChatGPT 與 GitHub Actions finalizer都不應自行完成此步驟。
