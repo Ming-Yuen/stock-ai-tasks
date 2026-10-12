@@ -4,7 +4,7 @@
 
 ## Source CSV
 
-可處理來源只有：
+正式 queue source 只存在 `main`：
 
 ```text
 stock-industry-classification/pending/*.csv
@@ -65,27 +65,28 @@ stock-industry-classification/finished/<source 原檔名>
 ```text
 Spring Boot
   ↓
-pending/*.csv
+main: pending/*.csv
   ↓
-ChatGPT 讀取及分析
+ChatGPT 只讀 main 並完成分析
   ↓
-ai-output/execution-*.json (schema v2)
+ai-results: ai-output/execution-*.json (schema v2)
   ↓
 GitHub Actions finalizer
   ↓
-finished/*.csv
+main: finished/*.csv
   ↓
 Spring Boot import
   ↓
-imported/*.csv
+main: imported/*.csv
 ```
 
 - `pending/`：Spring Boot 已匯出，等待 ChatGPT 分析。
-- `finished/`：GitHub Actions finalizer 依 bundle output 建立，等待 Spring Boot 匯入。
+- `ai-results/ai-output`：只用來傳遞 ChatGPT result bundle；不是 queue state 來源。
+- `finished/`：GitHub Actions finalizer 依 bundle output 在 `main` 建立，等待 Spring Boot 匯入。
 - `imported/`：只由 Spring Boot 成功匯入後建立。
 - `error/`：永久性資料錯誤的診斷位置。
 
-ChatGPT 不得自行建立 `finished` 或執行 `finished → imported`。
+ChatGPT 不得修改 `main`，不得自行建立 `finished` 或執行 `finished → imported`。
 
 ## Schema v2 result entry
 
@@ -96,7 +97,7 @@ ChatGPT 不得自行建立 `finished` 或執行 `finished → imported`。
   "task": "stock-industry-classification",
   "source": {
     "path": "stock-industry-classification/pending/example.csv",
-    "blob_sha": "actual-git-blob-sha-used-for-analysis"
+    "blob_sha": "actual-main-git-blob-sha-used-for-analysis"
   },
   "outputs": [
     {
@@ -108,17 +109,19 @@ ChatGPT 不得自行建立 `finished` 或執行 `finished → imported`。
 }
 ```
 
-實際執行時不得 hardcode `example.csv`；必須使用真實 source path、source blob SHA 與原檔名。
+實際執行時不得 hardcode `example.csv`；必須使用真實 source path、`main` source blob SHA 與原檔名。
 
 ## 每次 ChatGPT execution
 
-1. 依 root README 動態發現工作。
+1. 依 root README 從 `main` 動態發現工作。
 2. 按檔名／時間由舊到新處理 `pending/`。
 3. 對每個 source CSV 覆核每一 row，只修改三個分類欄位。
 4. 驗證 header、row 數、row 順序、`figi`、`symbol` 均保持不變。
 5. 將完整處理後 CSV 放入該 source 的唯一 `outputs[]` entry。
-6. 建立 bundle 前依 root README 重新驗證 source 仍存在且 blob SHA 未改變。
-7. ChatGPT 只建立 schema v2 bundle；由 GitHub Actions finalizer 套用 output 與刪除 source。
+6. 遵守 root README 的 bundle transport safety ceiling；不是固定 batch 上限，剩餘 pending 由下一次 execution 繼續。
+7. 建立 bundle 前重新讀取 `main` 最新 tree，驗證 included source 仍存在且 blob SHA 未改變。
+8. ChatGPT 唯一 GitHub write 是把 schema v2 bundle `create_file` 到 `ai-results` branch 的 `ai-output/`；不得使用其他 intermediate Git write。
+9. GitHub Actions finalizer 再從 `ai-results` 讀 bundle，套用 output 到 `main` 並刪除 source。
 
 如果 source 在 bundle 建立前已被改動或移走，該 result 必須從本次 bundle 排除，不得覆蓋最新來源。
 
