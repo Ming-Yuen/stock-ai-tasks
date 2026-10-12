@@ -30,10 +30,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 <<'PY'
+          import base64
+          import binascii
           import hashlib
           import json
-          import subprocess
-          from pathlib import Path
+          import re
+          from pathlib import Path, PurePosixPath
 
           root = Path('.')
           output_dir = root / 'ai-output'
@@ -48,71 +50,140 @@ jobs:
               header = f'blob {len(data)}\0'.encode('utf-8')
               return hashlib.sha1(header + data).hexdigest()
 
-          def safe_leaf(value: str, label: str) -> str:
-              if not value or '/' in value or '\\' in value or value in {'.', '..'}:
-                  raise ValueError(f'Invalid {label}: {value!r}')
-              return value
+          def safe_task(value: object) -> str:
+              task = str(value)
+              if not task or '/' in task or '\\' in task or task in {'.', '..'}:
+                  raise ValueError(f'Invalid task: {task!r}')
+              return task
+
+          def safe_repo_path(value: object, label: str) -> PurePosixPath:
+              raw = str(value)
+              if not raw or '\\' in raw:
+                  raise ValueError(f'Invalid {label}: {raw!r}')
+              path = PurePosixPath(raw)
+              if path.is_absolute() or any(part in {'', '.', '..'} for part in path.parts):
+                  raise ValueError(f'Invalid {label}: {raw!r}')
+              return path
+
+          def decode_output(output: dict) -> bytes:
+              encoding = str(output.get('encoding', 'utf-8')).lower()
+              content = output.get('content')
+              if not isinstance(content, str):
+                  raise ValueError('output content must be a string')
+              if encoding == 'utf-8':
+                  return content.encode('utf-8')
+              if encoding == 'base64':
+                  try:
+                      return base64.b64decode(content, validate=True)
+                  except (binascii.Error, ValueError) as exc:
+                      raise ValueError(f'Invalid base64 output content: {exc}') from exc
+              raise ValueError(f'Unsupported output encoding: {encoding!r}')
 
           plans = {}
+          output_owners = {}
           errors = []
 
           for bundle in bundles:
               try:
                   doc = json.loads(bundle.read_text(encoding='utf-8'))
-                  if doc.get('schema_version') != 1:
-                      raise ValueError('schema_version must be 1')
+                  if doc.get('schema_version') != 2:
+                      raise ValueError('schema_version must be 2')
                   results = doc.get('results')
                   if not isinstance(results, list) or not results:
                       raise ValueError('results must be a non-empty array')
 
-                  for item in results:
-                      task = safe_leaf(str(item['task']), 'task')
-                      filename = safe_leaf(str(item['filename']), 'filename')
-                      source_path = Path(str(item['source_path']))
-                      expected_sha = str(item['source_blob_sha'])
-                      content = str(item['content']).encode('utf-8')
+                  for index, item in enumerate(results):
+                      if not isinstance(item, dict):
+                          raise ValueError(f'results[{index}] must be an object')
 
-                      allowed_pending = Path(task) / 'pending' / filename
-                      allowed_processing = Path(task) / 'processing' / filename
-                      if source_path not in {allowed_pending, allowed_processing}:
-                          raise ValueError(f'Invalid source_path for {task}/{filename}: {source_path}')
-
-                      if not (Path(task) / 'README.md').is_file():
+                      task = safe_task(item.get('task'))
+                      if not (root / task / 'README.md').is_file():
                           raise ValueError(f'Task README missing: {task}/README.md')
 
-                      key = (task, filename)
-                      fingerprint = (str(source_path), expected_sha, hashlib.sha256(content).hexdigest())
-                      if key in plans:
-                          if plans[key]['fingerprint'] != fingerprint:
-                              raise ValueError(f'Conflicting duplicate result for {task}/{filename}')
-                          plans[key]['bundles'].add(bundle)
+                      source_doc = item.get('source')
+                      if not isinstance(source_doc, dict):
+                          raise ValueError(f'results[{index}].source must be an object')
+
+                      source_path = safe_repo_path(source_doc.get('path'), 'source path')
+                      expected_sha = str(source_doc.get('blob_sha', ''))
+                      if not re.fullmatch(r'[0-9a-f]{40}', expected_sha):
+                          raise ValueError(f'Invalid source blob SHA: {expected_sha!r}')
+
+                      if (
+                          len(source_path.parts) < 3
+                          or source_path.parts[0] != task
+                          or source_path.parts[1] not in {'pending', 'processing'}
+                      ):
+                          raise ValueError(f'Invalid source path for task {task}: {source_path}')
+
+                      outputs_doc = item.get('outputs')
+                      if not isinstance(outputs_doc, list) or not outputs_doc:
+                          raise ValueError(f'results[{index}].outputs must be a non-empty array')
+
+                      outputs = []
+                      seen_in_result = set()
+                      for output_index, output in enumerate(outputs_doc):
+                          if not isinstance(output, dict):
+                              raise ValueError(
+                                  f'results[{index}].outputs[{output_index}] must be an object'
+                              )
+                          output_path = safe_repo_path(output.get('path'), 'output path')
+                          if (
+                              len(output_path.parts) < 3
+                              or output_path.parts[0] != task
+                              or output_path.parts[1] != 'finished'
+                          ):
+                              raise ValueError(
+                                  f'Output must stay under {task}/finished/: {output_path}'
+                              )
+                          if output_path in seen_in_result:
+                              raise ValueError(f'Duplicate output path in one result: {output_path}')
+                          seen_in_result.add(output_path)
+                          output_bytes = decode_output(output)
+                          outputs.append((output_path, output_bytes))
+
+                      source_key = str(source_path)
+                      fingerprint = (
+                          expected_sha,
+                          tuple(
+                              (str(path), hashlib.sha256(data).hexdigest())
+                              for path, data in outputs
+                          ),
+                      )
+
+                      if source_key in plans:
+                          if plans[source_key]['fingerprint'] != fingerprint:
+                              raise ValueError(f'Conflicting duplicate result for source: {source_path}')
+                          plans[source_key]['bundles'].add(bundle)
                           continue
 
-                      source = root / source_path
-                      destination = root / task / 'finished' / filename
-
-                      if destination.exists():
-                          if destination.read_bytes() != content:
-                              raise ValueError(f'finished content conflict: {destination}')
-                          if source.exists() and blob_sha(source) != expected_sha:
-                              raise ValueError(f'source SHA changed: {source_path}')
-                          mode = 'already-finished'
-                      else:
-                          if not source.is_file():
-                              raise ValueError(f'source missing: {source_path}')
-                          actual_sha = blob_sha(source)
-                          if actual_sha != expected_sha:
+                      for output_path, output_bytes in outputs:
+                          owner = output_owners.get(str(output_path))
+                          if owner is not None and owner != source_key:
                               raise ValueError(
-                                  f'source SHA changed: {source_path}; expected {expected_sha}, actual {actual_sha}'
+                                  f'Output path claimed by multiple sources: {output_path}'
                               )
-                          mode = 'finalize'
+                          output_owners[str(output_path)] = source_key
 
-                      plans[key] = {
+                      source = root / Path(*source_path.parts)
+                      if not source.is_file():
+                          raise ValueError(f'Source missing: {source_path}')
+                      actual_sha = blob_sha(source)
+                      if actual_sha != expected_sha:
+                          raise ValueError(
+                              f'Source SHA changed: {source_path}; '
+                              f'expected {expected_sha}, actual {actual_sha}'
+                          )
+
+                      for output_path, output_bytes in outputs:
+                          destination = root / Path(*output_path.parts)
+                          if destination.exists() and destination.read_bytes() != output_bytes:
+                              raise ValueError(f'Output content conflict: {output_path}')
+
+                      plans[source_key] = {
                           'fingerprint': fingerprint,
                           'source': source,
-                          'destination': destination,
-                          'content': content,
-                          'mode': mode,
+                          'outputs': outputs,
                           'bundles': {bundle},
                       }
               except Exception as exc:
@@ -125,18 +196,21 @@ jobs:
               raise SystemExit(1)
 
           for plan in plans.values():
-              source = plan['source']
-              destination = plan['destination']
-              if plan['mode'] == 'finalize':
+              for output_path, output_bytes in plan['outputs']:
+                  destination = root / Path(*output_path.parts)
                   destination.parent.mkdir(parents=True, exist_ok=True)
-                  destination.write_bytes(plan['content'])
-              if source.exists():
-                  source.unlink()
+                  if not destination.exists():
+                      destination.write_bytes(output_bytes)
+              plan['source'].unlink()
 
           for bundle in bundles:
               bundle.unlink()
 
-          print(f'Finalized {len(plans)} batch(es) from {len(bundles)} bundle(s).')
+          output_count = sum(len(plan['outputs']) for plan in plans.values())
+          print(
+              f'Finalized {len(plans)} source(s), wrote {output_count} output(s) '
+              f'from {len(bundles)} bundle(s).'
+          )
           PY
 
       - name: Commit and push finalized queue state
