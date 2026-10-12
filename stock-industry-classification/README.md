@@ -7,6 +7,7 @@ figi,symbol,industry,sub_industry,valuation_industry
 ```
 
 Rules:
+- Keep the CSV file name, header, and row count unchanged. Do not split or merge files.
 - `figi` and `symbol` are identifiers and must never be changed.
 - AI may update only `industry`, `sub_industry`, and `valuation_industry`.
 - Existing classification values are hints only and must be re-checked.
