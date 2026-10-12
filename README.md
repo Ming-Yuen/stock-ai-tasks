@@ -79,11 +79,12 @@ imported/
 
 1. 先閱讀 task README。
 2. 按檔名／時間由舊到新處理 `pending/`。
-3. 每次執行必須持續處理該 task 的所有可處理 pending files，直到 `pending/` 為空；不要只處理一個 batch 就停止。
-4. 開始處理一個檔案前，先把它從 `pending/` 移到 `processing/` 並 commit + push。
-5. 嚴格按照 task README 修改內容。
-6. 完成後，把同名檔案從 `processing/` 移到 `finished/`，再 commit + push。
-7. 完成一個檔案後繼續下一個，直到沒有可處理的 pending files。
+3. 每次執行必須持續處理多個可處理的 pending files，不得只完成一個 batch 就無故停止。
+4. 單次執行不要求一定清空整個 `pending/`；若接近本次 ChatGPT 執行時間、工具調用或其他平台限制，應在完成並提交目前檔案後安全結束，下一次排程再由剩餘 `pending/` 繼續。
+5. 開始處理一個檔案前，先把它從 `pending/` 移到 `processing/` 並 commit + push。
+6. 嚴格按照 task README 修改內容。
+7. 完成後，把同名檔案從 `processing/` 移到 `finished/`，再 commit + push。
+8. 如果本次仍有可用執行能力，立即繼續下一個 pending file；不要因完成一個 batch 就主動停止。
 
 如果遇到暫時性的 GitHub、網路或服務錯誤：
 
