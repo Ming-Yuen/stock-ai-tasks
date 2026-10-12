@@ -37,17 +37,31 @@ ai-output/
 
 不得 hardcode task 名稱或 batch 路徑，不得依賴 `manifest.json` 或 code search 判斷 queue 狀態。
 
-## Batch 選擇
+## Batch 選擇與 execution drain 規則
 
 先處理 legacy `processing/`，再按檔名／時間由舊到新處理 `pending/`。
 
 新的流程不再把 `pending` 移到 `processing`。`processing/` 只保留舊架構遺留與恢復用途；ChatGPT 直接讀取它並完成分析，GitHub Actions finalize 後再刪除來源。
 
-ChatGPT 可在一次 execution 內持續分析多個 batch，不設固定 batch 上限。正常情況不要每完成一個 batch 就重新 full scan。
+一次 execution 的目標是 **drain 所有頂層 task folders 中所有可安全處理的 legacy `processing/` 與 `pending/` 工作**，而不是完成第一個 batch 就停止。
+
+必須遵守：
+
+- 不設定固定 batch 上限。
+- 完成一個 batch 後繼續處理下一個可安全處理 batch。
+- 某個 task 暫時沒有工作時，繼續檢查其他已發現的 task，不得因此提前結束整個 execution。
+- 正常情況不要每完成一個 batch 就重新 full scan；使用 execution 內快取維護已知 queue 狀態。
+- 當 execution 內快取判定所有已知 task 都沒有可處理工作時，必須再讀取一次最新 HEAD + recursive Git tree 做最終確認。
+- 若最終確認又發現新的或先前未見的可處理 `processing/` / `pending/`，必須繼續處理，之後再重複最終確認。
+- 只有最終確認證實所有頂層 task folders 都沒有可安全處理的 `processing/` / `pending/`，或遇到本 README 定義的真實阻礙，才可停止分析階段。
 
 ## Result bundle
 
-如果本次至少完成一個 batch，建立 bundle 前必須重新讀取最新 HEAD + recursive tree，確認每個來源仍存在且 blob SHA 未改變。已改變或已被其他 writer 處理的來源必須從 bundle 排除。
+如果本次至少完成一個 batch，**只在本次 execution 已按上述 drain 規則完成所有可安全處理工作後**建立 bundle。不得因完成第一個 batch、第一個 task 或任意中間 batch 就提早建立 bundle 並結束 execution。
+
+建立 bundle 前必須重新讀取最新 HEAD + recursive tree，確認每個已完成結果的來源仍存在且 blob SHA 未改變。已改變或已被其他 writer 處理的來源必須從 bundle 排除。
+
+如果這次最新 tree 又出現新的可安全處理工作，先回到分析階段繼續處理；只有 queue 再次 drain 並完成最終確認後才建立 bundle。
 
 每次 execution 正常只建立一份：
 
@@ -82,6 +96,7 @@ Bundle 規則：
 - `source_blob_sha` 必須是實際讀取並用於分析的來源 blob SHA。
 - `content` 必須是依 task README 完成並驗證後的完整檔案內容，不是 diff。
 - 同一 bundle 不得重複同一 task + filename。
+- bundle 應包含本次 execution 所有仍通過最終 source SHA 驗證的已完成 batch。
 - ChatGPT 只建立 bundle；不得自行刪除來源或建立 finished。
 - bundle 使用一般檔案建立操作寫入；若寫入失敗，來源保持原狀，下一次 execution 可安全重做。
 
@@ -118,15 +133,39 @@ Finalizer 不呼叫 OpenAI API，因此不產生 OpenAI API 用量。
 - 最終報告說明可核實原因與尚未提交的 batch。
 - 若 repository 寫入本身就是故障來源，不要求再做第二次無意義寫入來建立 execution report。
 
+除了上述真實阻礙外，不得因已處理一個 batch、已處理一個 task、已達任意人工數量或認為「已經做了足夠多」而提前停止。
+
 ## 正常結束
 
-成功建立 bundle 後，本次 ChatGPT execution 可結束；queue state transition 由 GitHub Actions 接手。
+正常 execution 必須依以下順序完成：
+
+```text
+讀取最新 framework / tree
+↓
+持續處理所有 task 的 legacy processing
+↓
+持續處理所有 task 的 pending
+↓
+execution cache 判定沒有工作
+↓
+重新讀取最新 HEAD + recursive tree 做最終確認
+↓
+如果又有可處理工作：繼續處理並再次確認
+↓
+如果所有 task 都已 drain：建立本次唯一 result bundle
+↓
+GitHub Actions finalizer 接手 queue state transition
+↓
+本次 ChatGPT execution 結束
+```
+
+因此，**成功完成某一個 batch 本身永遠不是 execution 的正常結束條件**。
 
 最終聊天報告至少說明：
 
 - 本次完成 AI 分析的 batch 數。
 - bundle 路徑。
 - 因來源變更而排除的 batch 數。
-- 當時仍可見的 pending / legacy processing 概況。
+- 最終確認時仍可見的 pending / legacy processing 概況。
 
-如果 execution 開始時沒有可處理 pending 或 legacy processing，則不通知，也不建立空 bundle。
+如果 execution 開始時最終確認沒有任何可處理 pending 或 legacy processing，則不建立空 bundle。
