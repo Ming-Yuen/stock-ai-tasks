@@ -1,5 +1,5 @@
 figi,symbol,industry,sub_industry,valuation_industry
-BBG000BLNNH6,IBM,,,
+BBG000BLNNH6,IBM,Information Technology,IT Services,Enterprise IT & Hybrid Cloud
 BBG00NSLFGZ2,IBMO,,,
 BBG00NVC3YP3,IBMP,,,
 BBG00NX0QL25,IBMQ,,,
@@ -36,15 +36,15 @@ BBG0215C2144,IBX,,,
 BBG0149J15X0,ICAP,,,
 BBG000BLQ5Q2,ICCC,,,
 BBG005K17W05,ICCM,,,
-BBG000C1FB75,ICE,,,
+BBG000C1FB75,ICE,Financials,Financial Exchanges & Data,Exchange & Market Infrastructure
 BBG000C3Z0X4,ICF,,,
 BBG000BBXVK5,ICFI,,,
 BBG018DNR863,ICG,,,
-BBG00F9VSCH3,ICHR,,,
-BBG000BXH0Q7,ICL,,,
+BBG00F9VSCH3,ICHR,Information Technology,Semiconductors & Semiconductor Equipment,Semiconductor Equipment Components
+BBG000BXH0Q7,ICL,Materials,Specialty Chemicals,Specialty Minerals & Chemicals
 BBG000BBM0N2,ICLN,,,
 BBG01BTTD004,ICLO,,,
-BBG000CTSZQ6,ICLR,,,
+BBG000CTSZQ6,ICLR,Health Care,Life Sciences Tools & Services,Contract Research Organization
 BBG005YZ5XC2,ICMB,,,
 BBG025G10WH7,ICMO,,,
 BBG01MVT4D45,ICON,,,
@@ -54,12 +54,12 @@ BBG01YKG9V62,ICPI,,,
 BBG01WZPDCX7,ICPY,,,
 BBG005PCDD01,ICSH,,,
 BBG00YVJVRK3,ICU,,,
-BBG000CQV2N4,ICUI,,,
+BBG000CQV2N4,ICUI,Health Care,Health Care Equipment,Infusion Therapy Devices
 BBG009BKDML7,ICVT,,,
 BBG000BLR3Y7,IDA,,,
 BBG00Z1WL5X9,IDAI,,,
 BBG023Y8P400,IDAU,,,
-BBG000HLJ7M4,IDCC,,,
+BBG000HLJ7M4,IDCC,Information Technology,Technology Hardware Storage & Peripherals,Wireless Technology Licensing
 BBG000PY3Y81,IDE,,,
 BBG01KCH53T0,IDEC,,,
 BBG01TYJMRS2,IDEF,,,
@@ -86,7 +86,7 @@ BBG0195MY579,IDVO,,,
 BBG01ZRH0RQ6,IDVY,,,
 BBG01R70P3R8,IDVZ,,,
 BBG000BZYH22,IDX,,,
-BBG000BLRT07,IDXX,,,
+BBG000BLRT07,IDXX,Health Care,Health Care Equipment,Veterinary Diagnostics
 BBG00CTZ4D83,IDYA,,,
 BBG01WDQ1DP9,IDYN,,,
 BBG012WFRMG0,IE,,,
@@ -98,4 +98,4 @@ BBG003H6TR19,IEFA,,,
 BBG000QN0RR1,IEI,,,
 BBG003HC3CQ0,IEMG,,,
 BBG000P8H1P6,IEO,,,
-BBG000BB3080,IEP,,,
+BBG000BB3080,IEP,Industrials,Industrial Conglomerates,Diversified Holding Company
