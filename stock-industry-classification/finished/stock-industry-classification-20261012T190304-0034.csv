@@ -1,0 +1,101 @@
+figi,symbol,industry,sub_industry,valuation_industry
+BBG01PD4YXX4,EMEQ,,,
+BBG01TXBDD29,EMES,,,
+BBG013DQG7Q9,EMET,,,
+BBG000BHWFQ2,EMF,,,
+BBG021MHP5K2,EMFI,,,
+BBG00BM64QM1,EMGF,,,
+BBG00ZXP9PZ7,EMHC,,,
+BBG002VCZQ17,EMHY,,,
+BBG000G4XV35,EMIF,,,
+BBG023DDFMP6,EMJL,,,
+BBG022MHYK90,EMJN,,,
+BBG01Y2L25X5,EMKT,,,
+BBG000BHWVB3,EML,Industrials,Industrial Machinery,Industrial Hardware & Components
+BBG000BF8YP3,EMLC,,,
+BBG0034YTQY8,EMLP,,,
+BBG01GJX1749,EMM,,,
+BBG00LNNW350,EMMF,,,
+BBG0223FJ372,EMMY,,,
+BBG000BLW530,EMN,Materials,Specialty Chemicals,Diversified Specialty Chemicals
+BBG00QQFDT39,EMNT,,,
+BBG001M6WF64,EMO,,,
+BBG01V85RGF9,EMOP,,,
+BBG01NG4D178,EMOT,,,
+BBG00DS53GM6,EMP,,,
+BBG01R7268R4,EMPB,,,
+BBG012GNY0K6,EMPD,,,
+BBG007J2YCX9,EMQQ,,,
+BBG000BHX7N2,EMR,Industrials,Electrical Equipment,Industrial Automation & Controls
+BBG022DWSH82,EMSC,,,
+BBG024R5LF74,EMSE,,,
+BBG01JFJDX66,EMSF,,,
+BBG00J7QR8C3,EMTY,,,
+BBG00H5VLMJ6,EMXC,,,
+BBG00XR16BC1,EMXF,,,
+BBG022KFCNP6,EMXX,,,
+BBG000K5M1S8,ENB,Energy,Oil & Gas Midstream,Pipeline & Energy Infrastructure
+BBG01TCGVRN7,ENDW,,,
+BBG005HVCXT4,ENFR,,,
+BBG01J1GCYW7,ENGN,Health Care,Biotechnology,Gene Therapy
+BBG01KHRDDX7,ENGS,,,
+BBG01V6DQSM1,ENHA,,,
+BBG025H4BPP4,ENHE,,,
+BBG0206GRMR8,ENHI,,,
+BBG01Y5RQXM4,ENHU,,,
+BBG00CMP4ZT0,ENIC,Utilities,Electric Utilities,Electricity Generation & Distribution
+BBG003NVGBC4,ENJ,,,
+BBG00PYR86N0,ENLT,Utilities,Renewable Electricity,Renewable Power Generation
+BBG005ZL1Z86,ENLV,Health Care,Biotechnology,Immunotherapy
+BBG00CGDKVL3,ENO,,,
+BBG002DMLTJ5,ENOR,,,
+BBG000C5Z443,ENOV,Health Care,Medical Devices,Orthopedic Devices
+BBG001R3MNY9,ENPH,Information Technology,Semiconductor Equipment & Components,Solar Microinverters
+BBG006FCB019,ENR,Consumer Staples,Household Products,Consumer Batteries
+BBG022WN4S10,ENRD,,,
+BBG01RH9HV68,ENRG,,,
+BBG000PWTD92,ENS,Industrials,Electrical Equipment,Industrial Batteries & Energy Storage
+BBG00JFF4174,ENSC,Health Care,Biotechnology,Pain Therapeutics
+BBG000K1T9L0,ENSG,Health Care,Health Care Facilities,Skilled Nursing Facilities
+BBG001V9NSB4,ENTA,Health Care,Biotechnology,Antiviral Therapeutics
+BBG000CTV4N4,ENTG,Information Technology,Semiconductor Materials,Semiconductor Process Materials
+BBG0236XZCD3,ENTL,,,
+BBG000R1K184,ENTX,Health Care,Biotechnology,Oral Biologic Therapeutics
+BBG0022PSJ14,ENVA,Financials,Consumer Finance,Online Consumer Lending
+BBG000BBQ281,ENVB,Health Care,Biotechnology,Drug Development
+BBG00YC53854,ENVX,Industrials,Electrical Equipment,Advanced Lithium Batteries
+BBG0015M9W30,ENZL,,,
+BBG0230KDKC4,EO,,,
+BBG005ZD02W1,EOCN,,,
+BBG012S333W2,EOCT,,,
+BBG000CRHXK3,EOD,,,
+BBG000BZ9223,EOG,Energy,Oil & Gas Exploration & Production,Upstream Oil & Gas
+BBG000BH97J4,EOI,,,
+BBG005CX4HK8,EOLS,Health Care,Pharmaceuticals,Medical Aesthetics
+BBG00Z83TWF9,EONR,Energy,Oil & Gas Exploration & Production,Upstream Oil & Gas
+BBG000QR2TF9,EOS,,,
+BBG00V1KJ6F5,EOSE,Industrials,Electrical Equipment,Grid Energy Storage Batteries
+BBG01ZJ8T5X4,EOSU,,,
+BBG000D5LLH5,EOT,,,
+BBG000BBS3H7,EP,,,
+BBG000B9WX45,EPAC,Industrials,Industrial Machinery,Hydraulic Tools & Equipment
+BBG01Z0WNY37,EPAI,,,
+BBG000MHTV89,EPAM,Information Technology,IT Services,Digital Engineering & IT Consulting
+BBG000BRW644,EPC,Consumer Staples,Personal Care Products,Consumer Personal Care
+BBG000BR3012,EPD,Energy,Oil & Gas Midstream,Natural Gas & NGL Midstream
+BBG01TQRTHV4,EPEM,,,
+BBG0016RN6D8,EPHE,,,
+BBG000VC1C55,EPI,,,
+BBG01TQRZ4W5,EPIN,,,
+BBG000C15T59,EPM,Energy,Oil & Gas Exploration & Production,Upstream Oil & Gas
+BBG01TQRMTQ1,EPMB,,,
+BBG01TQRPXH9,EPMV,,,
+BBG000QYG6S5,EPOL,,,
+BBG00Q8J6YX5,EPOW,Materials,Specialty Materials,Battery Anode Materials
+BBG000BJ1XP4,EPP,,,
+BBG000BSZYR3,EPR,Real Estate,Specialized REITs,Experiential Properties REITs
+BBG00CXM70V6,EPRF,,,
+BBG00L17LGJ7,EPRT,Real Estate,Retail REITs,Net Lease REITs
+BBG011CHM224,EPRX,Health Care,Biotechnology,Drug Development Biotechnology
+BBG000R1PCX7,EPS,,,
+BBG01TQRRQD6,EPSB,,,
