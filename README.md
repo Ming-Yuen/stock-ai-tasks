@@ -82,9 +82,9 @@ imported/
 - `processing/`：ChatGPT 已領取並正在處理。
 - `finished/`：ChatGPT 已完成，等待 Spring Boot 匯入。
 - `imported/`：Spring Boot 已成功匯入；ChatGPT 不應自行把檔案移入此 folder。
-- `error/`：只用於資料格式、識別碼、schema 或其他無法安全繼續的永久性問題。
+- `error/`：主要用於資料格式、識別碼、schema 或其他無法安全繼續的永久性問題；另外允許存放本 README 定義的 `execution-report-*.md` 執行層錯誤報告。執行報告不代表 batch 本身進入 error 狀態。
 
-若某個 task README 明確定義不同流程，以該 task README 為準。
+若某個 task README 明確定義不同流程，以該 task README 為準；但 `execution-report-*.md` 屬 framework 層的執行診斷紀錄，除非 task README 明確禁止非 CSV 檔案，否則可依下方規則寫入該 task 的 `error/`。
 
 ## ChatGPT 共通執行規則
 
@@ -93,30 +93,96 @@ imported/
 1. 先閱讀 task README。
 2. 按檔名／時間由舊到新處理 `pending/`。
 3. 每次執行必須持續處理多個可處理的 pending files，不得只完成一個 batch 就無故停止。
-4. 單次執行不要求一定清空整個 `pending/`；若接近本次 ChatGPT 執行時間、工具調用或其他平台限制，應在完成並提交目前檔案後安全結束，下一次排程再由剩餘 `pending/` 繼續。
+4. 正常目標是持續處理到所有具有效 README 的 task 都沒有可處理 pending，且沒有可安全恢復的 processing 工作；只有實際時間、工具、平台、GitHub、網路、服務限制，無法安全解決的競態／衝突，task 規則不足，或 framework 明確要求停止時，才可提前安全結束。
 5. 開始處理一個檔案前，先把它從 `pending/` 移到 `processing/` 並 commit + push。
 6. 嚴格按照 task README 修改內容。
 7. 完成後，把同名檔案從 `processing/` 移到 `finished/`，再 commit + push。
 8. 如果本次仍有可用執行能力，立即繼續下一個 pending file；不要因完成一個 batch 就主動停止。
+9. 每完成一個 batch 後重新讀取 `main` 最新狀態與 recursive Git tree，再選擇下一個工作，避免使用過時狀態。
 
 如果遇到暫時性的 GitHub、網路或服務錯誤：
 
 - 不要把未完成檔案標記為 `finished`。
-- 保留檔案在 `processing/`，讓下一次執行可以重試。
+- 保留檔案在符合 framework 與實際安全狀態的位置；若已成功領取至 `processing/`，不得為了美化狀態而猜測性移回或前移。
 - 停止本次執行，避免後續 commit 與 repository 狀態衝突。
+- 若仍有未完成工作，依下方「提前停止執行錯誤報告」規則記錄本次可核實狀態。
 
 如果遇到資料本身的永久性問題：
 
 - 按 task README 的規則處理。
-- 若沒有更具體規則，可把該檔案移到 `error/` 並記錄原因，然後繼續其他可處理的 pending files。
+- 若沒有更具體規則，可把該 batch 檔案移到 `error/` 並記錄原因，然後繼續其他可處理的 pending files。
+- batch 是否進入 `error/`、以及是否增加 `errorCount`，只由 task README 與 batch 的實際資料結果決定；不得因 execution report 的存在而增加 `errorCount`。
 
 ## Git 原則
 
 - 所有 AI task 變更直接針對 `main`，除非某個 task README 另有規定。
 - 每次狀態轉移或完成處理後都要 commit + push，讓 repository 狀態可追蹤及可恢復。
-- 不要修改目前 task 以外的檔案。
+- `pending → processing` 與 `processing → finished` 必須是兩個分開的狀態轉移，不得一次跨越兩個狀態。
+- 同一 repository 內的 batch 狀態 move 應以單一 Git commit 同時完成來源刪除與目的建立，避免「先 create 再 delete」造成中間重複狀態。
+- 不得 force push。
+- 若 main HEAD 在寫入期間已被其他合法 writer 更新，必須重新讀取最新 HEAD 與相關 batch 實際狀態；只有在來源／目的與內容仍可安全判定時才能基於最新 HEAD 重試。
+- 不要修改目前 task 以外的檔案，除非是本 README 明確要求的 repository-level 掃描或 execution report。
 - 不要修改其他 task 的 README 或資料，除非該次任務明確要求。
-- 不要自行改變 task folder 結構、檔名規則或資料 schema。
+- 不要自行改變 task folder 結構、batch 檔名規則或資料 schema。
+
+## 提前停止執行錯誤報告
+
+若一次 AI 執行在仍有 `pending/` 或未完成工作時，因可核實的真實阻礙而提前停止，必須把一份獨立的執行錯誤報告寫入**實際發生阻礙的 task**之 `error/` 目錄。
+
+適用的真實阻礙包括：
+
+- 實際執行時間、工具或平台限制。
+- 無法安全解決的 GitHub 競態、non-fast-forward、expected SHA mismatch 或內容衝突。
+- 暫時性的 GitHub、Connector、網路或服務錯誤。
+- task 缺少 README，或規則不足以安全處理。
+- framework 明確規定必須停止的其他情況。
+
+報告規則：
+
+1. 使用 Markdown，不得使用 CSV，避免被 Spring Boot importer 誤認為 batch。
+2. 檔名格式：`execution-report-YYYYMMDD-HHmmss.md`。
+3. 寫入位置：`<task-name>/error/`。
+4. 報告是 execution-level 診斷紀錄，不得取代、移動、改名或修改任何 batch CSV。
+5. 產生 execution report 本身**不得增加 `errorCount`**，也不得將正常 batch 標記為 error。
+6. 寫報告前必須重新取得 `main` 最新 HEAD 與最新 recursive Git tree，以最新可核實狀態為準。
+7. 報告本身應使用獨立 Git commit 寫入 `main`，以最新 HEAD 為 base，且不得 force push。
+8. 若寫入報告時遇到合法競態，重新取得最新 HEAD 後，在內容仍成立的前提下最多安全重試 3 次。
+9. 若 GitHub／Connector／工具故障嚴重到連報告都無法安全寫入，不得猜測修復或 force push；最終聊天報告必須明確指出 execution report 未能寫入及可核實原因。
+10. 如果本次正常處理到所有可處理工作清空，不建立 execution error report。
+
+每份 execution report 至少包含：
+
+- task 名稱。
+- 本次執行時間。
+- 本次全 repository `completedCount`。
+- 本次全 repository `errorCount`。
+- 該 task 本次成功完成的 batch 數。
+- 全 repository 最後一次掃描時剩餘 pending 合計。
+- 該 task 最後一次掃描時剩餘 pending 數。
+- 可核實的提前停止原因，不得以推測代替事實。
+- 是否留下 `processing/` 工作；若有，列出實際檔名。
+- 最後一次重新掃描時，與阻礙相關 batch 的實際狀態。
+- 最後可核實的 `main` HEAD／commit SHA（工具可取得時）。
+- 下一次執行應如何安全恢復，例如重新掃描最新 tree、優先恢復既有 processing，再繼續最舊 pending。
+
+如果同一次執行有多個 task 各自發生獨立且可核實的阻礙，則各受影響 task 各寫一份 execution report；不要把與該 task 無關的推測寫進其報告。
+
+## 結束報告
+
+如本次有實際處理，最終聊天報告至少應包含：
+
+- `completedCount`
+- `errorCount`
+- 所有 task 合計剩餘 pending 數
+- 各 task 本次完成／剩餘結果
+
+若仍有 pending 或未完成工作而停止，還必須說明：
+
+- 可核實的提前停止原因。
+- 是否留下 processing 工作。
+- execution report 寫入的實際 task/error 路徑；若無法寫入，明確說明原因。
+
+若執行開始時已確認所有 task 都沒有可處理 pending，且沒有可安全恢復的 processing，則不需要通知，也不要建立 execution error report。
 
 ## 任務專屬規格
 
